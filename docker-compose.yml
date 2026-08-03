@@ -1,0 +1,12 @@
+services:
+  pixelweb:
+    build: .
+    image: pixelweb:latest
+    container_name: pixelweb
+    restart: unless-stopped
+    ports:
+      - "80:3001"
+    environment:
+      PORT: "3001"
+      MAP_PROFILE: default
+    mem_limit: 1536m

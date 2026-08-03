@@ -1,0 +1,11 @@
+node_modules
+.git
+.cursor
+*.local
+.env
+data/raw
+data/ingested
+data/worlds/earth3x/ingested
+**/*.partial
+pixelweb-deploy.tar.gz
+README.md

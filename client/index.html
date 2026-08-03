@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PixelWeb — Mapa del Mundo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Sans:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div id="boot">
+      <div class="boot-panel">
+        <p class="brand">PIXELWEB</p>
+        <h1>Explorá el planeta en pixel art</h1>
+        <p class="sub">
+          Layers lógicos: terreno, altura y vegetación (Natural Earth + Terrarium).
+          La representación pixel art viene después. Multijugador en tiempo real.
+        </p>
+
+        <label class="field">
+          <span>Tu nombre</span>
+          <input id="player-name" type="text" maxlength="16" placeholder="Explorador" autocomplete="off" />
+        </label>
+
+        <div class="field">
+          <span>Emoji</span>
+          <div class="emoji-picker" id="emoji-picker" role="listbox" aria-label="Emoji del explorador"></div>
+          <input type="hidden" id="player-emoji" value="🧭" />
+        </div>
+
+        <label class="field">
+          <span>Mundo (layers)</span>
+          <select id="map-world">
+            <option value="default">Tierra 4k (actual)</option>
+            <option value="earth3x" selected>Tierra 12k (×3, elev z6, ríos 2)</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Starting area</span>
+          <select id="starting-area">
+            <option value="argentina" selected>Argentina</option>
+            <option value="eeuu">EEUU</option>
+            <option value="europa">Europa</option>
+            <option value="congo">Congo</option>
+            <option value="himalaya">Himalaya</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Fuente del mapa</span>
+          <select id="map-source">
+            <option value="layers" selected>Layers bakeados (maps:build)</option>
+            <option value="procedural">Procedural</option>
+            <option value="upload">Subir imagen</option>
+          </select>
+        </label>
+
+        <div class="row" id="fallback-opts">
+          <label class="field grow">
+            <span>Resolución (fallback)</span>
+            <select id="map-res">
+              <option value="2048">2048 × 1024 (rápido)</option>
+              <option value="4096">4096 × 2048 (alta)</option>
+              <option value="8192" selected>8192 × 4096 (ultra)</option>
+            </select>
+          </label>
+          <label class="field grow">
+            <span>Paleta</span>
+            <select id="map-palette">
+              <option value="earth" selected>Tierra</option>
+              <option value="retro">Retro 16</option>
+              <option value="mono">Monocromo</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="field hidden" id="upload-field">
+          <span>Mapa (PNG/JPG)</span>
+          <input id="map-file" type="file" accept="image/*" />
+        </label>
+        <p class="hint" id="file-hint">Corré <code>npm run maps:build</code> una vez para generar los layers.</p>
+
+        <div class="row fx-toggles">
+          <label class="check-field">
+            <input id="fx-clouds" type="checkbox" checked />
+            <span>Nubes</span>
+          </label>
+          <label class="check-field">
+            <input id="fx-waves" type="checkbox" checked />
+            <span>Oleaje (costa)</span>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="btn-play" type="button">Entrar al mundo</button>
+        </div>
+        <p class="status" id="boot-status"></p>
+      </div>
+    </div>
+
+    <div id="hud" class="hidden">
+      <div class="hud-top">
+        <span class="brand-mini">PIXELWEB</span>
+        <div id="game-clock" class="game-clock" title="GMT−3 · N/M ±5min · Shift+N/M ±1h · V/B ±3d · Shift+V/B ±30d">
+          <span class="game-clock-face" aria-hidden="true"></span>
+          <div class="game-clock-text">
+            <div class="game-clock-row">
+              <span id="game-clock-time">10:00</span>
+              <span id="game-clock-tz">GMT−3</span>
+              <span id="game-clock-phase">mañana</span>
+            </div>
+            <div class="game-clock-row game-clock-cal">
+              <span id="game-clock-date">3 ago</span>
+              <span class="game-clock-sep" aria-hidden="true">·</span>
+              <span id="game-clock-season">invierno</span>
+            </div>
+          </div>
+        </div>
+        <span id="player-count">1 online</span>
+      </div>
+      <div class="hud-help">WASD · N/M ±5min · Shift+N/M ±1h · V/B ±3d · Shift+V/B ±30d · chat</div>
+      <aside id="tile-info" class="info-panel" aria-live="polite">
+        <div class="tile-info-title">Jugador</div>
+        <dl>
+          <div><dt>pos</dt><dd id="ti-pos">—</dd></div>
+          <div><dt>lat/lon</dt><dd id="ti-geo">—</dd></div>
+          <div><dt>altura</dt><dd id="ti-elev">—</dd></div>
+          <div><dt>terreno</dt><dd id="ti-cover">—</dd></div>
+          <div><dt>mask</dt><dd id="ti-mask">—</dd></div>
+        </dl>
+      </aside>
+      <aside id="mouse-info" class="info-panel" aria-live="polite">
+        <div class="tile-info-title">Cursor</div>
+        <dl>
+          <div><dt>pos</dt><dd id="mi-pos">—</dd></div>
+          <div><dt>lat/lon</dt><dd id="mi-geo">—</dd></div>
+          <div><dt>altura</dt><dd id="mi-elev">—</dd></div>
+          <div><dt>terreno</dt><dd id="mi-cover">—</dd></div>
+          <div><dt>mask</dt><dd id="mi-mask">—</dd></div>
+        </dl>
+      </aside>
+      <div id="chat-log"></div>
+      <form id="chat-form">
+        <input id="chat-input" type="text" maxlength="120" placeholder="Decí algo…" autocomplete="off" />
+      </form>
+    </div>
+
+    <div id="game"></div>
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>

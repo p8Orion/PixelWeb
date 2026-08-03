@@ -1,0 +1,453 @@
+:root {
+  --bg0: #0b1a14;
+  --bg1: #143028;
+  --moss: #3d7a5a;
+  --sand: #c4a574;
+  --foam: #e8f0e6;
+  --ink: #08140f;
+  --accent: #f0a050;
+  --danger: #d4543a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, #1a4034 0%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 80%, #2a1a0e 0%, transparent 50%),
+    linear-gradient(160deg, var(--bg0), var(--bg1));
+  color: var(--foam);
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+#game {
+  width: 100%;
+  height: 100%;
+}
+
+#game canvas {
+  image-rendering: pixelated;
+  display: block;
+}
+
+#boot {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background:
+    linear-gradient(180deg, rgba(8, 20, 15, 0.55), rgba(8, 20, 15, 0.85)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Crect fill='%2308140f' width='16' height='16'/%3E%3Crect fill='%23143028' x='0' y='0' width='8' height='8'/%3E%3Crect fill='%23143028' x='8' y='8' width='8' height='8'/%3E%3C/svg%3E");
+  background-size: auto, 16px 16px;
+}
+
+.boot-panel {
+  width: min(520px, 100%);
+  padding: 2rem 1.75rem;
+  background: linear-gradient(145deg, rgba(20, 48, 40, 0.95), rgba(11, 26, 20, 0.98));
+  border: 3px solid var(--moss);
+  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.35);
+}
+
+.brand {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 1.35rem;
+  color: var(--accent);
+  margin: 0 0 1rem;
+  letter-spacing: 0.04em;
+  text-shadow: 3px 3px 0 var(--ink);
+}
+
+.boot-panel h1 {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.72rem;
+  line-height: 1.55;
+  margin: 0 0 0.85rem;
+  color: var(--foam);
+}
+
+.sub,
+.hint {
+  margin: 0 0 1.25rem;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: rgba(232, 240, 230, 0.72);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.9rem;
+}
+
+.field span {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sand);
+}
+
+.emoji-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.emoji-picker button {
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  color: inherit;
+  background: transparent;
+  border: 2px solid rgba(61, 122, 90, 0.45);
+  border-radius: 0;
+}
+
+.emoji-picker button:hover {
+  border-color: var(--sand);
+}
+
+.emoji-picker button[aria-selected='true'] {
+  border-color: var(--accent);
+  background: rgba(240, 160, 80, 0.12);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.fx-toggles {
+  gap: 1rem;
+  margin: 0.25rem 0 0.85rem;
+}
+
+.check-field {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  color: var(--foam);
+  user-select: none;
+}
+
+.check-field input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.check-field span {
+  font-size: 0.8rem;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  color: var(--foam);
+}
+
+.row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.grow {
+  flex: 1;
+}
+
+input[type='text'],
+select,
+input[type='file'] {
+  font: inherit;
+  color: var(--foam);
+  background: var(--ink);
+  border: 2px solid var(--moss);
+  padding: 0.55rem 0.65rem;
+}
+
+input[type='file'] {
+  padding: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.actions {
+  margin-top: 0.5rem;
+}
+
+#btn-play {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.65rem;
+  width: 100%;
+  padding: 1rem 0.75rem;
+  border: none;
+  cursor: pointer;
+  color: var(--ink);
+  background: var(--accent);
+  box-shadow: 4px 4px 0 var(--ink);
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+#btn-play:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 var(--ink);
+}
+
+#btn-play:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+#btn-play:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.status {
+  min-height: 1.2rem;
+  margin: 0.85rem 0 0;
+  font-size: 0.85rem;
+  color: var(--sand);
+}
+
+.hidden {
+  display: none !important;
+}
+
+#hud {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.75rem;
+}
+
+.hud-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.55rem;
+  text-shadow: 2px 2px 0 #000;
+}
+
+.game-clock {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.55rem;
+  background: rgba(8, 20, 15, 0.82);
+  border: 2px solid rgba(61, 122, 90, 0.85);
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.game-clock-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.game-clock-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.game-clock-cal {
+  gap: 0.3rem;
+}
+
+.game-clock-face {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f0d060, #e09030 55%, #8a5018);
+  box-shadow: 0 0 6px rgba(240, 160, 80, 0.55);
+  flex-shrink: 0;
+}
+
+.game-clock[data-phase='noche'] .game-clock-face {
+  background: radial-gradient(circle at 40% 40%, #d8e0f0, #6a7a9a 60%, #2a3048);
+  box-shadow: 0 0 5px rgba(180, 200, 240, 0.35);
+}
+
+.game-clock[data-phase='amanecer'] .game-clock-face,
+.game-clock[data-phase='atardecer'] .game-clock-face {
+  background: radial-gradient(circle at 35% 35%, #ffd0a0, #f07040 50%, #c04060);
+  box-shadow: 0 0 7px rgba(240, 100, 80, 0.55);
+}
+
+#game-clock-time {
+  color: var(--foam);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+#game-clock-tz {
+  color: var(--accent);
+  font-size: 0.38rem;
+  letter-spacing: 0.02em;
+  opacity: 0.9;
+}
+
+#game-clock-date {
+  color: var(--foam);
+  font-size: 0.42rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+#game-clock-season {
+  color: var(--accent);
+  font-size: 0.42rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.game-clock-sep {
+  color: var(--sand);
+  font-size: 0.42rem;
+  opacity: 0.5;
+}
+
+#game-clock-phase {
+  color: var(--sand);
+  font-size: 0.42rem;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.brand-mini {
+  color: var(--accent);
+}
+
+.hud-help {
+  position: absolute;
+  top: 2rem;
+  left: 0.75rem;
+  font-size: 0.8rem;
+  opacity: 0.65;
+  text-shadow: 1px 1px 0 #000;
+}
+
+#chat-log {
+  margin-top: auto;
+  max-width: 360px;
+  max-height: 140px;
+  overflow: hidden;
+  font-size: 0.8rem;
+  text-shadow: 1px 1px 0 #000;
+}
+
+#chat-log div {
+  margin-top: 0.2rem;
+}
+
+#chat-form {
+  pointer-events: auto;
+  margin-top: 0.4rem;
+  max-width: 360px;
+}
+
+#chat-input {
+  width: 100%;
+  background: rgba(8, 20, 15, 0.75);
+  border: 2px solid rgba(61, 122, 90, 0.7);
+  color: var(--foam);
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+}
+
+.info-panel {
+  pointer-events: none;
+  position: absolute;
+  right: 0.75rem;
+  min-width: 168px;
+  max-width: 220px;
+  padding: 0.55rem 0.65rem;
+  background: rgba(8, 20, 15, 0.82);
+  border: 2px solid rgba(61, 122, 90, 0.85);
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.35);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  text-shadow: none;
+}
+
+#tile-info {
+  top: 2.75rem;
+}
+
+#mouse-info {
+  top: 11.25rem;
+  border-color: rgba(90, 140, 160, 0.85);
+}
+
+#mouse-info .tile-info-title {
+  color: #7eb8c8;
+}
+
+.tile-info-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.45rem;
+  color: var(--accent);
+  margin-bottom: 0.45rem;
+  letter-spacing: 0.04em;
+}
+
+.info-panel dl {
+  margin: 0;
+}
+
+.info-panel dl > div {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 0.25rem 0.4rem;
+  margin-top: 0.2rem;
+}
+
+.info-panel dt {
+  margin: 0;
+  color: var(--sand);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.info-panel dd {
+  margin: 0;
+  color: var(--foam);
+  font-variant-numeric: tabular-nums;
+  word-break: break-word;
+}
+
+#chat-form:focus-within #chat-input {
+  border-color: var(--accent);
+  outline: none;
+}
+
+@media (max-width: 560px) {
+  .row {
+    flex-direction: column;
+  }
+
+  .brand {
+    font-size: 1.05rem;
+  }
+
+  .boot-panel h1 {
+    font-size: 0.62rem;
+  }
+}
