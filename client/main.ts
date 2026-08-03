@@ -23,7 +23,6 @@ const sourceSelect = document.getElementById('map-source') as HTMLSelectElement;
 const resSelect = document.getElementById('map-res') as HTMLSelectElement;
 const paletteSelect = document.getElementById('map-palette') as HTMLSelectElement;
 const fileInput = document.getElementById('map-file') as HTMLInputElement;
-const fileHint = document.getElementById('file-hint')!;
 const uploadField = document.getElementById('upload-field')!;
 const fxCloudsInput = document.getElementById('fx-clouds') as HTMLInputElement;
 const fxWavesInput = document.getElementById('fx-waves') as HTMLInputElement;
@@ -47,6 +46,17 @@ const miGeo = document.getElementById('mi-geo')!;
 const miElev = document.getElementById('mi-elev')!;
 const miCover = document.getElementById('mi-cover')!;
 const miMask = document.getElementById('mi-mask')!;
+const niPing = document.getElementById('ni-ping')!;
+
+function renderPing(ms: number | null) {
+  if (ms == null || !Number.isFinite(ms)) {
+    niPing.textContent = '—';
+    niPing.dataset.quality = 'offline';
+    return;
+  }
+  niPing.textContent = `${ms} ms`;
+  niPing.dataset.quality = ms < 80 ? 'good' : ms < 180 ? 'ok' : 'bad';
+}
 
 function renderClock(h = GameClock.hour) {
   gameClockTime.textContent = GameClock.format(h);
@@ -112,19 +122,8 @@ fxWavesInput.addEventListener('change', () => {
 
 function syncSourceUi() {
   const src = sourceSelect.value;
-  const worldId = worldSelect.value;
   uploadField.classList.toggle('hidden', src !== 'upload');
   worldSelect.disabled = src !== 'layers';
-  if (src === 'layers') {
-    fileHint.innerHTML =
-      worldId === 'earth3x'
-        ? 'Mundo <strong>12k</strong>: <code>npm run maps:build -- --world=earth3x --force</code> · API <code>/api/maps/worlds/earth3x</code>'
-        : 'Mundo <strong>4k</strong>: <code>/api/maps/world</code> (ingest → interpret).';
-  } else if (src === 'procedural') {
-    fileHint.textContent = 'Mundo procedural de respaldo.';
-  } else {
-    fileHint.textContent = 'Subí un PNG/JPG del mapa.';
-  }
 }
 sourceSelect.addEventListener('change', syncSourceUi);
 worldSelect.addEventListener('change', syncSourceUi);
@@ -148,11 +147,6 @@ async function refreshWorldAvailability() {
   }
 }
 void refreshWorldAvailability();
-
-fileInput.addEventListener('change', () => {
-  const f = fileInput.files?.[0];
-  if (f) fileHint.textContent = `Usando: ${f.name}`;
-});
 
 let sendChat: ((text: string) => void) | null = null;
 let setChatFocused: ((focused: boolean) => void) | null = null;
@@ -260,6 +254,7 @@ playBtn.addEventListener('click', async () => {
       onPlayersChange: (n) => {
         playerCount.textContent = `${n} online`;
       },
+      onPing: renderPing,
       onChat: (line) => {
         const div = document.createElement('div');
         div.textContent = line;
@@ -281,7 +276,7 @@ playBtn.addEventListener('click', async () => {
 chatForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const text = chatInput.value.trim();
-  if (!text || !sendChat) return;
-  sendChat(text);
+  if (text && sendChat) sendChat(text);
   chatInput.value = '';
+  chatInput.blur(); // back to walking
 });

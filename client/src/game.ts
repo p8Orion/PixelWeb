@@ -121,8 +121,11 @@ export class WorldScene extends Phaser.Scene {
   private chatFocused = false;
   private onPlayersChange?: (n: number) => void;
   private onChat?: (line: string) => void;
+  private onPing?: (ms: number | null) => void;
   private onTileInfo?: (info: TileInfo) => void;
   private onMouseTileInfo?: (info: TileInfo | null) => void;
+  private pingTimer?: ReturnType<typeof setInterval>;
+  private awaitingPong = false;
   /**
    * Phaser skips any key event with defaultPrevented===true. So we must NOT
    * preventDefault in capture phase. Bubble phase runs after Phaser queues the
@@ -180,12 +183,14 @@ export class WorldScene extends Phaser.Scene {
     boot: BootConfig;
     onPlayersChange: (n: number) => void;
     onChat: (line: string) => void;
+    onPing?: (ms: number | null) => void;
     onTileInfo: (info: TileInfo) => void;
     onMouseTileInfo?: (info: TileInfo | null) => void;
   }) {
     this.config = data.boot;
     this.onPlayersChange = data.onPlayersChange;
     this.onChat = data.onChat;
+    this.onPing = data.onPing;
     this.onTileInfo = data.onTileInfo;
     this.onMouseTileInfo = data.onMouseTileInfo;
   }
@@ -195,9 +200,11 @@ export class WorldScene extends Phaser.Scene {
     const kb = this.input.keyboard;
     if (!kb) return;
     if (focused) {
-      kb.removeCapture(MOVE_CAPTURE);
+      // Let the DOM input receive Space and other keys (Phaser capture uses preventDefault).
+      kb.disableGlobalCapture();
       kb.resetKeys();
     } else {
+      kb.enableGlobalCapture();
       kb.addCapture(MOVE_CAPTURE);
     }
   }
@@ -330,6 +337,10 @@ export class WorldScene extends Phaser.Scene {
       this.mapData?.tileStore?.destroy();
       this.tileView?.destroy();
       this.tileView = undefined;
+      if (this.pingTimer) {
+        clearInterval(this.pingTimer);
+        this.pingTimer = undefined;
+      }
       window.removeEventListener('keydown', this.blockBrowserHotkeys);
       window.removeEventListener('keyup', this.blockBrowserHotkeys);
       window.removeEventListener('keydown', this.onTimeKeys);
@@ -355,7 +366,13 @@ export class WorldScene extends Phaser.Scene {
     });
 
     if (this.input.keyboard) {
-      this.cursors = this.input.keyboard.createCursorKeys();
+      // Arrows only — createCursorKeys() also captures SPACE and blocks typing spaces in chat.
+      this.cursors = this.input.keyboard.addKeys({
+        up: Phaser.Input.Keyboard.KeyCodes.UP,
+        down: Phaser.Input.Keyboard.KeyCodes.DOWN,
+        left: Phaser.Input.Keyboard.KeyCodes.LEFT,
+        right: Phaser.Input.Keyboard.KeyCodes.RIGHT,
+      }) as Phaser.Types.Input.Keyboard.CursorKeys;
       this.wasd = this.input.keyboard.addKeys('W,A,S,D') as typeof this.wasd;
       this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
       this.ctrlKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.CTRL);
@@ -469,6 +486,32 @@ export class WorldScene extends Phaser.Scene {
       transports: ['websocket', 'polling'],
     });
 
+    const startPingLoop = () => {
+      if (this.pingTimer) clearInterval(this.pingTimer);
+      const probe = () => {
+        if (!this.socket?.connected || this.awaitingPong) return;
+        this.awaitingPong = true;
+        this.socket.emit('latency:ping', performance.now());
+      };
+      probe();
+      this.pingTimer = setInterval(probe, 2000);
+    };
+
+    this.socket.on('latency:pong', (clientTime: number) => {
+      this.awaitingPong = false;
+      const ms = Math.max(0, Math.round(performance.now() - clientTime));
+      this.onPing?.(ms);
+    });
+
+    this.socket.on('connect', () => {
+      startPingLoop();
+    });
+
+    this.socket.on('disconnect', () => {
+      this.awaitingPong = false;
+      this.onPing?.(null);
+    });
+
     this.socket.on('welcome', (payload: { you: PlayerState; room: RoomState }) => {
       this.localId = payload.you.id;
       this.spawnLocal(payload.you);
@@ -481,6 +524,7 @@ export class WorldScene extends Phaser.Scene {
       });
       this.onPlayersChange?.(Object.keys(payload.room.players).length);
       this.config.onStatus('');
+      startPingLoop();
     });
 
     this.socket.on('player:join', (p: PlayerState) => {
@@ -514,6 +558,8 @@ export class WorldScene extends Phaser.Scene {
     });
 
     this.socket.on('connect_error', () => {
+      this.awaitingPong = false;
+      this.onPing?.(null);
       this.config.onStatus('Sin servidor — modo local (abrí `npm run dev`)');
       if (!this.player) {
         const spawn = areaSpawn(
@@ -558,6 +604,7 @@ export class WorldScene extends Phaser.Scene {
       .setDepth(11);
     this.syncPlayerScreenScale();
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
+    this.mapData?.tileStore?.syncToView(this.cameras.main.worldView);
     this.emitTileInfo(true);
   }
 
@@ -747,6 +794,7 @@ export function startGame(
   hooks: {
     onPlayersChange: (n: number) => void;
     onChat: (line: string) => void;
+    onPing?: (ms: number | null) => void;
     onTileInfo: (info: TileInfo) => void;
     onMouseTileInfo?: (info: TileInfo | null) => void;
     getChatSender: (send: (text: string) => void) => void;
@@ -773,6 +821,7 @@ export function startGame(
     boot,
     onPlayersChange: hooks.onPlayersChange,
     onChat: hooks.onChat,
+    onPing: hooks.onPing,
     onTileInfo: hooks.onTileInfo,
     onMouseTileInfo: hooks.onMouseTileInfo,
   });

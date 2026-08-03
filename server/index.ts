@@ -115,6 +115,10 @@ io.on('connection', (socket) => {
     io.emit('chat', { id: socket.id, name: p.name, text });
   });
 
+  socket.on('latency:ping', (clientTime: number) => {
+    socket.emit('latency:pong', clientTime);
+  });
+
   socket.on('disconnect', () => {
     delete room.players[socket.id];
     socket.broadcast.emit('player:leave', socket.id);

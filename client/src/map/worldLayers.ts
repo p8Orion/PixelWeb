@@ -9,8 +9,8 @@ function layersBaseUrl(worldId: string): string {
 }
 
 /**
- * Client only fetches already-interpreted game layers from the server.
- * Import/interpretation never runs in the browser.
+ * Legacy full-map download (debug / tools). Runtime gameplay uses TileStore
+ * viewport streaming via `fetchWorldMeta` + `/tiles/:tx/:ty`.
  */
 export async function loadWorldLayers(worldId = 'default'): Promise<WorldLayers> {
   const baseUrl = layersBaseUrl(worldId);

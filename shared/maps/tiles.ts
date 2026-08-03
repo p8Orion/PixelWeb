@@ -1,6 +1,6 @@
 /** Logical map tile streaming — shared by server crop + client store. */
 
-export const MAP_TILE_SIZE = 256 as const;
+export const MAP_TILE_SIZE = 256;
 
 export const TILE_MAGIC = 0x4c545750; // 'PWTL' LE
 
@@ -22,11 +22,11 @@ export function tileKey(tx: number, ty: number): string {
   return `${tx},${ty}`;
 }
 
-export function worldToTile(px: number, tileSize = MAP_TILE_SIZE): number {
+export function worldToTile(px: number, tileSize: number = MAP_TILE_SIZE): number {
   return Math.floor(px / tileSize);
 }
 
-export function tileCount(mapSize: number, tileSize = MAP_TILE_SIZE): number {
+export function tileCount(mapSize: number, tileSize: number = MAP_TILE_SIZE): number {
   return Math.ceil(mapSize / tileSize);
 }
 
@@ -35,7 +35,7 @@ export function tilePixelBounds(
   ty: number,
   mapW: number,
   mapH: number,
-  tileSize = MAP_TILE_SIZE,
+  tileSize: number = MAP_TILE_SIZE,
 ): { x0: number; y0: number; tw: number; th: number } {
   const x0 = tx * tileSize;
   const y0 = ty * tileSize;
@@ -103,7 +103,7 @@ export function cropWorldTile(
   landcover: Uint8Array,
   tx: number,
   ty: number,
-  tileSize = MAP_TILE_SIZE,
+  tileSize: number = MAP_TILE_SIZE,
 ): MapTileData | null {
   const { x0, y0, tw, th } = tilePixelBounds(tx, ty, mapW, mapH, tileSize);
   if (tw <= 0 || th <= 0) return null;

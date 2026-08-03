@@ -50,7 +50,7 @@ body {
 }
 
 .boot-panel {
-  width: min(520px, 100%);
+  width: min(720px, 100%);
   padding: 2rem 1.75rem;
   background: linear-gradient(145deg, rgba(20, 48, 40, 0.95), rgba(11, 26, 20, 0.98));
   border: 3px solid var(--moss);
@@ -70,16 +70,8 @@ body {
   font-family: 'Press Start 2P', monospace;
   font-size: 0.72rem;
   line-height: 1.55;
-  margin: 0 0 0.85rem;
-  color: var(--foam);
-}
-
-.sub,
-.hint {
   margin: 0 0 1.25rem;
-  font-size: 0.92rem;
-  line-height: 1.45;
-  color: rgba(232, 240, 230, 0.72);
+  color: var(--foam);
 }
 
 .field {
@@ -156,10 +148,20 @@ body {
 .row {
   display: flex;
   gap: 0.75rem;
+  align-items: flex-end;
 }
 
 .grow {
   flex: 1;
+  min-width: 0;
+}
+
+.row > .field {
+  margin-bottom: 0.9rem;
+}
+
+.row select {
+  width: 100%;
 }
 
 input[type='text'],
@@ -386,12 +388,45 @@ input[type='file'] {
   text-shadow: none;
 }
 
-#tile-info {
+#net-info {
   top: 2.75rem;
+  min-width: 120px;
+  border-color: rgba(120, 150, 90, 0.85);
+}
+
+#net-info .tile-info-title {
+  color: #a8c878;
+}
+
+#ni-ping {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.03em;
+}
+
+#ni-ping[data-quality='good'] {
+  color: #8fd98f;
+}
+
+#ni-ping[data-quality='ok'] {
+  color: #e0c060;
+}
+
+#ni-ping[data-quality='bad'] {
+  color: #e08060;
+}
+
+#ni-ping[data-quality='offline'] {
+  color: var(--sand);
+  opacity: 0.75;
+}
+
+#tile-info {
+  top: 6.85rem;
 }
 
 #mouse-info {
-  top: 11.25rem;
+  top: 15.35rem;
   border-color: rgba(90, 140, 160, 0.85);
 }
 
