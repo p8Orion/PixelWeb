@@ -1,9 +1,14 @@
 /**
  * Named map worlds — separate ingest/interpret trees, shared game rules.
  * Solar FX uses equirectangular lat/lon from pixel UV; works for any W×H.
+ *
+ * `source: 'procedural'` worlds skip Earth ingest and generate GameWorldLayers
+ * via shared/maps/procedural at ensure time.
  */
 
 import { HYDRO_INTERPRET } from './hydro.js';
+
+export type MapWorldSource = 'ingest' | 'procedural';
 
 export interface MapWorldDef {
   id: string;
@@ -11,7 +16,9 @@ export interface MapWorldDef {
   label: string;
   /** Short hint under the selector */
   hint: string;
-  /** Paths relative to repo root */
+  /** How layers are produced. Default: ingest → interpret. */
+  source?: MapWorldSource;
+  /** Paths relative to repo root (unused for procedural, kept for catalog shape). */
   ingestedRel: string;
   /** Interpreted profiles live under `${interpretedRel}/<profile>/` */
   interpretedRel: string;
@@ -31,6 +38,7 @@ export const MAP_WORLD_DEFAULT: MapWorldDef = {
   id: 'default',
   label: 'Tierra 4k (actual)',
   hint: '4096×2048 · elev z4 · ríos ×1',
+  source: 'ingest',
   ingestedRel: 'data/ingested',
   interpretedRel: 'data/interpreted',
   hydroStrokeScale: HYDRO_INTERPRET.strokeScale,
@@ -44,6 +52,7 @@ export const MAP_WORLD_EARTH3X: MapWorldDef = {
   id: 'earth3x',
   label: 'Tierra 12k (×3)',
   hint: '12288×6144 · elev z6 · ríos stroke 2',
+  source: 'ingest',
   ingestedRel: 'data/worlds/earth3x/ingested',
   interpretedRel: 'data/worlds/earth3x/interpreted',
   hydroStrokeScale: 2,
@@ -52,9 +61,24 @@ export const MAP_WORLD_EARTH3X: MapWorldDef = {
   elevZoom: 6,
 };
 
+/** In-memory fBm continents — always generable, no maps:build. */
+export const MAP_WORLD_PROCEDURAL: MapWorldDef = {
+  id: 'procedural',
+  label: 'Procedural',
+  hint: '2048×1024 · pipeline 5 etapas · lab /generator.html',
+  source: 'procedural',
+  ingestedRel: 'data/worlds/procedural/ingested',
+  interpretedRel: 'data/worlds/procedural/interpreted',
+  hydroStrokeScale: HYDRO_INTERPRET.strokeScale,
+  width: 2048,
+  height: 1024,
+  elevZoom: 0,
+};
+
 export const MAP_WORLDS: Record<string, MapWorldDef> = {
   [MAP_WORLD_DEFAULT.id]: MAP_WORLD_DEFAULT,
   [MAP_WORLD_EARTH3X.id]: MAP_WORLD_EARTH3X,
+  [MAP_WORLD_PROCEDURAL.id]: MAP_WORLD_PROCEDURAL,
 };
 
 export const MAP_WORLD_IDS = Object.keys(MAP_WORLDS) as string[];

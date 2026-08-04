@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import type { IngestedWorld, IngestedWorldMeta } from '../../shared/maps/ingest.js';
 import type { GameWorldLayers } from '../../shared/maps/game.js';
+import { generateWorldFromDef, isProceduralWorld } from '../../shared/maps/procedural/index.js';
 import { getMapWorld, listMapWorlds, type MapWorldDef } from '../../shared/maps/worlds.js';
 import { interpretWorld } from './interpret/index.js';
 
@@ -180,6 +181,7 @@ export async function worldAvailability(): Promise<
       id: def.id,
       label: def.label,
       hint: def.hint,
+      source: def.source ?? 'ingest',
       ingestedRel: def.ingestedRel,
       interpretedRel: def.interpretedRel,
       hydroStrokeScale: def.hydroStrokeScale,
@@ -194,6 +196,16 @@ export async function worldAvailability(): Promise<
         ready: true,
         width: cached.meta.width,
         height: cached.meta.height,
+      });
+      continue;
+    }
+    // Procedural worlds are always generable — treat as ready even before first ensure.
+    if (isProceduralWorld(def)) {
+      out.push({
+        ...base,
+        ready: true,
+        width: def.width,
+        height: def.height,
       });
       continue;
     }
@@ -215,16 +227,40 @@ export async function worldAvailability(): Promise<
 
 /**
  * Ensure a map world is loaded:
- * 1) memory 2) disk cache 3) interpret from that world's ingest
+ * 1) memory 2) disk cache 3) procedural generate OR interpret from ingest
  */
 export async function ensureGameWorld(
   worldId = process.env.MAP_WORLD || 'default',
   profile = process.env.MAP_PROFILE || 'default',
 ): Promise<GameWorldLayers> {
   const hit = cache.get(worldId);
-  if (hit && hit.meta.profile === profile) {
+  if (hit && (isProceduralWorld(worldId) || hit.meta.profile === profile)) {
     activeWorldId = worldId;
     return hit;
+  }
+
+  const def = getMapWorld(worldId);
+
+  if (isProceduralWorld(def)) {
+    const disk = await loadPersistedInterpreted(worldId, 'procedural');
+    if (disk && disk.meta.width === def.width && disk.meta.height === def.height) {
+      setWorld(worldId, disk);
+      console.log(
+        `Maps: loaded procedural world="${worldId}" ${disk.meta.width}×${disk.meta.height} (disk)`,
+      );
+      return disk;
+    }
+    const layers = await generateWorldFromDef(def, { profile: 'procedural' });
+    setWorld(worldId, layers);
+    try {
+      await persistInterpreted(layers, worldId);
+    } catch (err) {
+      console.warn(`Maps: could not persist procedural world — ${String(err)}`);
+    }
+    console.log(
+      `Maps: generated procedural world="${worldId}" ${layers.meta.width}×${layers.meta.height}`,
+    );
+    return layers;
   }
 
   const cached = await loadPersistedInterpreted(worldId, profile);
@@ -241,7 +277,7 @@ export async function ensureGameWorld(
   await persistInterpreted(layers, worldId);
   setWorld(worldId, layers);
   console.log(
-    `Maps: interpreted world="${worldId}" profile="${profile}" → ${getMapWorld(worldId).interpretedRel}/${profile}`,
+    `Maps: interpreted world="${worldId}" profile="${profile}" → ${def.interpretedRel}/${profile}`,
   );
   return layers;
 }

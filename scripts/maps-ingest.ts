@@ -32,6 +32,12 @@ async function main() {
   const argv = process.argv.slice(2);
   const worldId = parseWorld(argv);
   const world = getMapWorld(worldId);
+  if (world.source === 'procedural') {
+    console.error(
+      `World "${worldId}" is procedural — no ingest. Pick it in the boot UI; the server generates layers on ensure.`,
+    );
+    process.exit(1);
+  }
   const parsed = parseArgs(argv);
 
   // World catalog supplies defaults unless CLI overrides width/zoom explicitly

@@ -29,6 +29,12 @@ function parseCli(argv: string[]): { profile: string; force: boolean; worldId: s
 async function main() {
   const { profile, force, worldId } = parseCli(process.argv.slice(2));
   const world = getMapWorld(worldId);
+  if (world.source === 'procedural') {
+    console.error(
+      `World "${worldId}" is procedural — no interpret. The server generates layers on ensure.`,
+    );
+    process.exit(1);
+  }
   console.log(`PixelWeb maps:interpret  world=${worldId}  profile=${profile}`);
   console.log(`  hydroStrokeScale=${world.hydroStrokeScale}`);
   console.log(

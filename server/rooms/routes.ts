@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { MAP_TILE_SIZE, cropWorldTile, encodeMapTile, tileCount } from '../../shared/maps/tiles.js';
+import { isProceduralWorld } from '../../shared/maps/procedural/index.js';
 import { roomPublicMeta } from '../../shared/rooms.js';
-import { getWorld } from '../maps/store.js';
+import { ensureGameWorld, getWorld } from '../maps/store.js';
 import { applyOverlayToTile } from './overlay.js';
 import { roomStore } from './store.js';
 import { mergedTileCache } from './tileCache.js';
@@ -9,7 +10,7 @@ import { mergedTileCache } from './tileCache.js';
 export function createRoomsRouter(): Router {
   const router = Router();
 
-  router.post('/', (req, res) => {
+  router.post('/', async (req, res) => {
     try {
       const worldId = String(req.body?.worldId || 'default');
       const profile = req.body?.profile ? String(req.body.profile) : undefined;
@@ -18,6 +19,8 @@ export function createRoomsRouter(): Router {
         daysPerMonth: req.body?.daysPerMonth,
         lunarQuarterDays: req.body?.lunarQuarterDays,
       };
+      // Lazy-load (procedural generates here if boot skipped it).
+      await ensureGameWorld(worldId, profile || process.env.MAP_PROFILE || 'default');
       const room = roomStore.create({ worldId, profile, timeScale });
       res.status(201).json({
         roomId: room.id,
@@ -37,12 +40,15 @@ export function createRoomsRouter(): Router {
     } catch (err) {
       const status = (err as { status?: number }).status || 500;
       const worldId = (err as { worldId?: string }).worldId;
+      const procedural = worldId ? isProceduralWorld(worldId) : false;
       res.status(status).json({
         error: err instanceof Error ? err.message : String(err),
         worldId: worldId ?? null,
         hint:
           status === 503 && worldId
-            ? `Corré npm run maps:build -- --world=${worldId} --force y reiniciá el server`
+            ? procedural
+              ? 'Reiniciá el server — el mundo procedural se genera al arrancar'
+              : `Corré npm run maps:build -- --world=${worldId} --force y reiniciá el server`
             : undefined,
       });
     }

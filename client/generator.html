@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PixelWeb — Modo generador</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Sans:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/generator.css" />
+  </head>
+  <body class="generator-page">
+    <div id="gen-app">
+      <aside id="gen-sidebar">
+        <div class="gen-sidebar-main">
+          <div class="gen-brand">
+            <a href="/" class="gen-back">← Juego</a>
+            <p class="brand">GENERADOR</p>
+          </div>
+
+          <p id="gen-step-label" class="gen-step">Etapa 0 · Tamaño</p>
+
+          <div id="gen-setup" class="gen-setup">
+            <label class="field">
+              <span>Tamaño del mapa</span>
+              <select id="gen-size">
+                <option value="512x256">512 × 256 (prueba)</option>
+                <option value="1024x512">1024 × 512</option>
+                <option value="2048x1024" selected>2048 × 1024</option>
+                <option value="4096x2048">4096 × 2048</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Seed <em id="gen-seed-val">—</em></span>
+              <input id="gen-seed" type="number" value="0" step="1" />
+            </label>
+          </div>
+
+          <div class="gen-actions">
+            <button type="button" id="gen-next" class="primary">Correr siguiente etapa</button>
+            <button type="button" id="gen-back">Volver etapa anterior</button>
+            <button type="button" id="gen-rest">Correr etapas restantes</button>
+            <button type="button" id="gen-reset">Reset a etapa 0</button>
+            <button type="button" id="gen-apply" class="accent" disabled>Usar como mundo</button>
+          </div>
+
+          <label class="field" id="gen-buffer-field">
+            <span>Vista (buffer)</span>
+            <select id="gen-buffer"></select>
+          </label>
+
+          <div id="gen-legend" class="gen-legend hidden" aria-label="Leyenda"></div>
+
+          <div id="gen-params" class="gen-params"></div>
+        </div>
+
+        <p id="gen-status" class="gen-status" role="status">Elegí tamaño y corré la etapa 0</p>
+        <pre id="gen-log" class="gen-log" aria-live="polite"></pre>
+      </aside>
+
+      <main id="gen-viewport">
+        <div id="gen-canvas-wrap">
+          <canvas id="gen-canvas" width="2048" height="1024"></canvas>
+          <canvas id="gen-overlay" width="2048" height="1024"></canvas>
+        </div>
+      </main>
+    </div>
+    <script type="module" src="/generatorMain.ts"></script>
+  </body>
+</html>

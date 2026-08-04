@@ -3,8 +3,14 @@ import {
   previewRgbForCell,
   type GameWorldLayers,
 } from '../../shared/maps/game.js';
+import {
+  generateProceduralLayers,
+  generateWorldFromDef,
+  isProceduralWorld,
+  type ProceduralParams,
+} from '../../shared/maps/procedural/index.js';
 import { MAP_TILE_SIZE, cropWorldTile, encodeMapTile, tileCount } from '../../shared/maps/tiles.js';
-import { listMapWorlds } from '../../shared/maps/worlds.js';
+import { getMapWorld, listMapWorlds } from '../../shared/maps/worlds.js';
 import {
   ensureGameWorld,
   getActiveWorld,
@@ -147,6 +153,13 @@ function mountWorldRoutes(
   router.post(`${prefix}/reinterpret`, async (req, res) => {
     try {
       const worldId = resolveId(req);
+      const def = getMapWorld(worldId);
+      if (isProceduralWorld(def)) {
+        const layers = await generateWorldFromDef(def, { profile: 'procedural' });
+        setWorld(worldId, layers);
+        res.json({ ok: true, meta: metaWithTiles(layers) });
+        return;
+      }
       const profile = String(req.body?.profile || process.env.MAP_PROFILE || 'default');
       const ingested = await loadIngested(worldId);
       const layers = interpretWorld(ingested, profile, { worldId });
@@ -186,6 +199,34 @@ export function createMapsRouter(): Router {
   router.get('/worlds', async (_req, res) => {
     const worlds = await worldAvailability();
     res.json({ worlds });
+  });
+
+  /** Lab → server: regenerate procedural world from params and cache it. */
+  router.post('/worlds/procedural/apply', async (req, res) => {
+    try {
+      const raw = req.body?.params as ProceduralParams | undefined;
+      const def = getMapWorld('procedural');
+      const layers = await generateProceduralLayers({
+        worldId: 'procedural',
+        width: raw?.width ?? def.width,
+        height: raw?.height ?? def.height,
+        seed: raw?.seed ?? 42,
+        profile: 'procedural',
+        params: raw,
+      });
+      setWorld('procedural', layers);
+      try {
+        await persistInterpreted(layers, 'procedural');
+      } catch (err) {
+        console.warn(`Maps: persist procedural apply failed — ${String(err)}`);
+      }
+      console.log(
+        `Maps: applied procedural from lab ${layers.meta.width}×${layers.meta.height} seed=${raw?.seed ?? 42}`,
+      );
+      res.json({ ok: true, meta: metaWithTiles(layers) });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
   });
 
   mountWorldRoutes(router, '/worlds/:worldId', (req) => String(req.params.worldId));

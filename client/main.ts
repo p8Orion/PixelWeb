@@ -311,16 +311,32 @@ async function refreshWorldAvailability() {
     const res = await fetch('/api/maps/worlds');
     if (!res.ok) return;
     const data = (await res.json()) as {
-      worlds: Array<{ id: string; ready: boolean; label: string; hint: string }>;
+      worlds: Array<{
+        id: string;
+        ready: boolean;
+        label: string;
+        hint: string;
+        source?: string;
+      }>;
     };
-    for (const opt of Array.from(worldSelect.options)) {
-      const w = data.worlds.find((x) => x.id === opt.value);
-      if (!w) continue;
+    const prev = worldSelect.value;
+    worldSelect.replaceChildren();
+    for (const w of data.worlds) {
+      const opt = document.createElement('option');
+      opt.value = w.id;
       opt.textContent = w.ready ? w.label : `${w.label} (no generado)`;
-      opt.disabled = !w.ready && opt.value !== 'default';
+      opt.title = w.hint || '';
+      opt.disabled = !w.ready;
+      worldSelect.appendChild(opt);
+    }
+    if ([...worldSelect.options].some((o) => o.value === prev && !o.disabled)) {
+      worldSelect.value = prev;
+    } else {
+      const firstReady = [...worldSelect.options].find((o) => !o.disabled);
+      if (firstReady) worldSelect.value = firstReady.value;
     }
   } catch {
-    /* server down — leave labels */
+    /* server down — leave static options */
   }
 }
 void refreshWorldAvailability();

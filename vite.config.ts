@@ -1,4 +1,8 @@
 import { defineConfig } from 'vite';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const root = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   root: 'client',
@@ -19,5 +23,11 @@ export default defineConfig({
   build: {
     outDir: '../dist',
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: path.resolve(root, 'client/index.html'),
+        generator: path.resolve(root, 'client/generator.html'),
+      },
+    },
   },
 });

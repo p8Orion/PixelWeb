@@ -6,5 +6,6 @@ dist
 data/raw
 data/ingested
 data/interpreted
+data/worlds
 client/public/maps
 *.partial
