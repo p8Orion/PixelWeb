@@ -204,6 +204,59 @@ input[type='file'] {
   font-size: 0.85rem;
 }
 
+.mode-toggle {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.mode-toggle button {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  flex: 1;
+  min-width: 5.5rem;
+  padding: 0.55rem 0.4rem;
+  border: 2px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.mode-toggle button[aria-pressed='true'] {
+  background: var(--accent);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+.hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.75rem;
+  opacity: 0.75;
+  line-height: 1.35;
+}
+
+.room-code {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  padding: 0.35rem 0.5rem;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffe08a;
+  cursor: pointer;
+  user-select: all;
+}
+
+.room-code.hidden {
+  display: none;
+}
+
+#join-code {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+}
+
 .actions {
   margin-top: 0.5rem;
 }

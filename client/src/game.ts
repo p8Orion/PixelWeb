@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { io, type Socket } from 'socket.io-client';
-import type { PlayerState, RoomState, StartingAreaId } from '../../shared/types';
+import type { PlayerState, StartingAreaId } from '../../shared/types';
+import type { MapPatchEvent, WelcomePayload } from '../../shared/rooms';
 import {
   areaSpawn,
   DEFAULT_CAMERA_ZOOM,
@@ -34,6 +35,10 @@ export interface BootConfig {
   mapSource: 'layers' | 'procedural' | 'upload';
   /** Which interpreted world to fetch when mapSource=layers. */
   worldId: string;
+  /** Multiplayer room; null = solo local (no socket). */
+  roomId: string | null;
+  /** Shareable join code (HUD); null in solo. */
+  joinCode: string | null;
   /** Regional spawn box (Argentina, EEUU, …). */
   startingArea: StartingAreaId;
   /** Emoji avatar drawn on the map. */
@@ -276,7 +281,7 @@ export class WorldScene extends Phaser.Scene {
       try {
         this.config.onStatus('Pediendo meta al servidor…');
         const meta = await fetchWorldMeta(this.config.worldId);
-        const store = new TileStore(this.config.worldId, meta);
+        const store = new TileStore(this.config.worldId, meta, this.config.roomId);
         this.tileView = new TileMapView(this, store.tileSize);
         store.onTileReady = (tile) => this.tileView?.addOrUpdate(tile);
         store.onTileEvicted = (tx, ty) => this.tileView?.remove(tx, ty);
@@ -462,8 +467,14 @@ export class WorldScene extends Phaser.Scene {
     this.game.events.on(Phaser.Core.Events.BLUR, this.clearStuckKeys);
     this.game.events.on(Phaser.Core.Events.HIDDEN, this.clearStuckKeys);
 
-    this.config.onStatus('Conectando al servidor…');
-    this.connectMultiplayer();
+    if (this.config.roomId) {
+      this.config.onStatus('Conectando a la sala…');
+      this.connectMultiplayer();
+    } else {
+      this.config.onStatus('');
+      this.spawnLocalSolo();
+      this.onPlayersChange?.(1);
+    }
 
     // Re-apply after async load (HMR / long fetch) and start the day timer cleanly.
     if (this.config.daySeconds != null) setDaySeconds(this.config.daySeconds);
@@ -612,12 +623,36 @@ export class WorldScene extends Phaser.Scene {
     };
   }
 
+  private spawnLocalSolo() {
+    if (this.player || !this.mapData) return;
+    const spawn = areaSpawn(
+      this.config.startingArea || DEFAULT_STARTING_AREA,
+      this.mapData.width,
+      this.mapData.height,
+    );
+    this.spawnLocal({
+      id: 'local',
+      name: this.config.name,
+      x: spawn.x,
+      y: spawn.y,
+      color: 0xf0a050,
+      facing: 'down',
+      emoji: this.config.emoji || DEFAULT_PLAYER_EMOJI,
+    });
+  }
+
   private connectMultiplayer() {
+    const roomId = this.config.roomId;
+    if (!roomId) {
+      this.spawnLocalSolo();
+      return;
+    }
+
     const url = import.meta.env.VITE_SOCKET_URL || undefined;
     this.socket = io(url || '/', {
       query: {
+        roomId,
         name: this.config.name,
-        worldId: this.config.worldId,
         startingArea: this.config.startingArea || DEFAULT_STARTING_AREA,
         emoji: this.config.emoji || DEFAULT_PLAYER_EMOJI,
       },
@@ -650,16 +685,13 @@ export class WorldScene extends Phaser.Scene {
       this.onPing?.(null);
     });
 
-    this.socket.on('welcome', (payload: { you: PlayerState; room: RoomState }) => {
+    this.socket.on('welcome', (payload: WelcomePayload) => {
       this.localId = payload.you.id;
+      if (payload.joinCode) this.config.joinCode = payload.joinCode;
       this.spawnLocal(payload.you);
       for (const p of Object.values(payload.room.players)) {
         if (p.id !== this.localId) this.spawnRemote(p);
       }
-      this.socket?.emit('map:size', {
-        width: this.mapData!.width,
-        height: this.mapData!.height,
-      });
       this.onPlayersChange?.(Object.keys(payload.room.players).length);
       this.config.onStatus('');
       startPingLoop();
@@ -695,26 +727,24 @@ export class WorldScene extends Phaser.Scene {
       this.onChat?.(`${msg.name}: ${msg.text}`);
     });
 
+    this.socket.on('map:patch', (event: MapPatchEvent) => {
+      const store = this.mapData?.tileStore;
+      if (!store) return;
+      store.invalidate(event.tiles?.length ? event.tiles : undefined);
+    });
+
+    this.socket.on('room:reject', (payload: { message?: string }) => {
+      this.config.onStatus(payload?.message || 'No se pudo entrar a la sala');
+      this.spawnLocalSolo();
+      this.onPlayersChange?.(1);
+    });
+
     this.socket.on('connect_error', () => {
       this.awaitingPong = false;
       this.onPing?.(null);
       this.config.onStatus('Sin servidor — modo local (abrí `npm run dev`)');
-      if (!this.player) {
-        const spawn = areaSpawn(
-          this.config.startingArea || DEFAULT_STARTING_AREA,
-          this.mapData!.width,
-          this.mapData!.height,
-        );
-        this.spawnLocal({
-          id: 'local',
-          name: this.config.name,
-          x: spawn.x,
-          y: spawn.y,
-          color: 0xf0a050,
-          facing: 'down',
-          emoji: this.config.emoji || DEFAULT_PLAYER_EMOJI,
-        });
-      }
+      this.spawnLocalSolo();
+      this.onPlayersChange?.(1);
     });
   }
 
@@ -795,7 +825,28 @@ export class WorldScene extends Phaser.Scene {
   }
 
   sendChat(text: string) {
-    this.socket?.emit('chat', text);
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    // Demo room deltas (chat commands)
+    const seaMatch = trimmed.match(/^\/sea\s+(-?\d+)\s*$/i);
+    if (seaMatch && this.socket) {
+      this.socket.emit('map:demo', { kind: 'seaLevel', meters: Number(seaMatch[1]) });
+      return;
+    }
+    if (/^\/flood\b/i.test(trimmed) && this.socket && this.player) {
+      const halfMatch = trimmed.match(/^\/flood\s+(\d+)\s*$/i);
+      const halfSize = halfMatch ? Number(halfMatch[1]) : 48;
+      this.socket.emit('map:demo', {
+        kind: 'flood',
+        x: this.player.x,
+        y: this.player.y,
+        halfSize,
+      });
+      return;
+    }
+
+    this.socket?.emit('chat', trimmed);
   }
 
   private emitTileInfo(force = false) {

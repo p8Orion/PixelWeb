@@ -67,6 +67,7 @@ const MARGIN_TILES = 1;
 
 export class TileStore {
   readonly worldId: string;
+  readonly roomId: string | null;
   readonly meta: GameWorldMeta;
   readonly tileSize: number;
   readonly baseUrl: string;
@@ -83,11 +84,14 @@ export class TileStore {
   private regionDirty = false;
   private regionTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(worldId: string, meta: GameWorldMeta) {
+  constructor(worldId: string, meta: GameWorldMeta, roomId: string | null = null) {
     this.worldId = worldId;
+    this.roomId = roomId;
     this.meta = meta;
     this.tileSize = meta.tileSize ?? MAP_TILE_SIZE;
-    this.baseUrl = layersBaseUrl(worldId);
+    this.baseUrl = roomId
+      ? `/api/rooms/${encodeURIComponent(roomId)}`
+      : layersBaseUrl(worldId);
   }
 
   get mapWidth(): number {
@@ -254,6 +258,33 @@ export class TileStore {
     }
 
     return { originX, originY, width, height, landmask, elevation, landcover };
+  }
+
+  /** Drop cached tiles (all, or listed). Re-fetch if still in wanted set. */
+  invalidate(tiles?: Array<{ tx: number; ty: number }>): void {
+    if (!tiles || tiles.length === 0) {
+      for (const t of this.cache.values()) {
+        this.onTileEvicted?.(t.tx, t.ty);
+      }
+      this.cache.clear();
+      this.inflight.clear();
+      this.scheduleRegionRebuild();
+      for (const key of this.wanted) {
+        const [tx, ty] = key.split(',').map(Number);
+        void this.fetchTile(tx, ty);
+      }
+      return;
+    }
+    for (const { tx, ty } of tiles) {
+      const key = tileKey(tx, ty);
+      if (this.cache.has(key)) {
+        this.cache.delete(key);
+        this.onTileEvicted?.(tx, ty);
+      }
+      this.inflight.delete(key);
+      if (this.wanted.has(key)) void this.fetchTile(tx, ty);
+    }
+    this.scheduleRegionRebuild();
   }
 
   destroy(): void {
