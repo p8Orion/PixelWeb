@@ -52,6 +52,11 @@ const daySecondsValue = document.getElementById('day-seconds-value')!;
 const lunarQuarterSlider = document.getElementById('lunar-quarter-days') as HTMLInputElement;
 const lunarQuarterValue = document.getElementById('lunar-quarter-value')!;
 const playBtn = document.getElementById('btn-play') as HTMLButtonElement;
+const playModeEl = document.getElementById('play-mode')!;
+const joinCodeField = document.getElementById('join-code-field')!;
+const joinCodeInput = document.getElementById('join-code') as HTMLInputElement;
+const modeHint = document.getElementById('mode-hint')!;
+const roomCodeEl = document.getElementById('room-code')!;
 const playerCount = document.getElementById('player-count')!;
 const gameClockEl = document.getElementById('game-clock')!;
 const gameClockTime = document.getElementById('game-clock-time')!;
@@ -252,8 +257,51 @@ lunarQuarterSlider.addEventListener('input', () => {
 function syncSourceUi() {
   const src = sourceSelect.value;
   uploadField.classList.toggle('hidden', src !== 'upload');
-  worldSelect.disabled = src !== 'layers';
+  const mode = currentPlayMode();
+  worldSelect.disabled = src !== 'layers' || mode === 'join';
 }
+
+type PlayMode = 'create' | 'join' | 'solo';
+
+function currentPlayMode(): PlayMode {
+  const pressed = playModeEl.querySelector('button[aria-pressed="true"]') as HTMLButtonElement | null;
+  const mode = pressed?.dataset.mode;
+  if (mode === 'join' || mode === 'solo' || mode === 'create') return mode;
+  return 'create';
+}
+
+function setPlayMode(mode: PlayMode) {
+  for (const btn of playModeEl.querySelectorAll('button')) {
+    const m = (btn as HTMLButtonElement).dataset.mode;
+    btn.setAttribute('aria-pressed', m === mode ? 'true' : 'false');
+  }
+  joinCodeField.classList.toggle('hidden', mode !== 'join');
+  if (mode === 'create') {
+    playBtn.textContent = 'Crear sala';
+    modeHint.textContent =
+      'Multiplayer: el mundo se fija al crear la sala. Demo en chat: /sea N · /flood';
+    if (sourceSelect.value !== 'layers') sourceSelect.value = 'layers';
+  } else if (mode === 'join') {
+    playBtn.textContent = 'Unirse a sala';
+    modeHint.textContent = 'El mundo lo define la sala. Ingresá el código del host.';
+    sourceSelect.value = 'layers';
+  } else {
+    playBtn.textContent = 'Jugar solo';
+    modeHint.textContent = 'Sin multiplayer. Procedural/upload solo en este modo.';
+  }
+  // Multiplayer modes force layers
+  sourceSelect.disabled = mode !== 'solo';
+  syncSourceUi();
+}
+
+for (const btn of playModeEl.querySelectorAll('button')) {
+  btn.addEventListener('click', () => {
+    const mode = (btn as HTMLButtonElement).dataset.mode as PlayMode;
+    if (mode) setPlayMode(mode);
+  });
+}
+setPlayMode('create');
+
 sourceSelect.addEventListener('change', syncSourceUi);
 worldSelect.addEventListener('change', syncSourceUi);
 syncSourceUi();
@@ -356,8 +404,9 @@ playBtn.addEventListener('click', async () => {
   const width = Number(resSelect.value);
   const height = width / 2;
   const palette = paletteSelect.value as 'earth' | 'retro' | 'mono';
-  const mapSource = sourceSelect.value as 'layers' | 'procedural' | 'upload';
-  const worldId = worldSelect.value || 'default';
+  const mode = currentPlayMode();
+  let mapSource = sourceSelect.value as 'layers' | 'procedural' | 'upload';
+  let worldId = worldSelect.value || 'default';
   const startingArea: StartingAreaId = isStartingAreaId(startingAreaSelect.value)
     ? startingAreaSelect.value
     : DEFAULT_STARTING_AREA;
@@ -381,8 +430,84 @@ playBtn.addEventListener('click', async () => {
   playBtn.disabled = true;
   statusEl.textContent = 'Arrancando…';
 
+  let roomId: string | null = null;
+  let joinCode: string | null = null;
+  let bootDaySeconds = daySeconds;
+  let bootDaysPerMonth = daysPerMonth;
+  let bootLunarQuarterDays = lunarQuarterDays;
+
+  try {
+    if (mode === 'create') {
+      mapSource = 'layers';
+      statusEl.textContent = 'Creando sala…';
+      const res = await fetch('/api/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          worldId,
+          daySeconds,
+          daysPerMonth,
+          lunarQuarterDays,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          (body as { hint?: string; error?: string }).hint ||
+            (body as { error?: string }).error ||
+            `No se pudo crear la sala (${res.status})`,
+        );
+      }
+      roomId = String((body as { roomId: string }).roomId);
+      joinCode = String((body as { joinCode: string }).joinCode);
+      worldId = String((body as { config: { worldId: string } }).config.worldId);
+      const time = (body as { time?: { daySeconds: number; daysPerMonth: number; lunarQuarterDays: number } })
+        .time;
+      if (time) {
+        bootDaySeconds = time.daySeconds;
+        bootDaysPerMonth = time.daysPerMonth;
+        bootLunarQuarterDays = time.lunarQuarterDays;
+      }
+    } else if (mode === 'join') {
+      mapSource = 'layers';
+      const code = joinCodeInput.value.trim().toUpperCase();
+      if (!code) throw new Error('Ingresá el código de sala');
+      statusEl.textContent = 'Buscando sala…';
+      const res = await fetch(`/api/rooms/code/${encodeURIComponent(code)}`);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error((body as { error?: string }).error || 'Sala no encontrada');
+      }
+      roomId = String((body as { roomId: string }).roomId);
+      joinCode = String((body as { joinCode: string }).joinCode);
+      worldId = String((body as { config: { worldId: string } }).config.worldId);
+      const time = (body as { time?: { daySeconds: number; daysPerMonth: number; lunarQuarterDays: number } })
+        .time;
+      if (time) {
+        bootDaySeconds = time.daySeconds;
+        bootDaysPerMonth = time.daysPerMonth;
+        bootLunarQuarterDays = time.lunarQuarterDays;
+      }
+    } else {
+      roomId = null;
+      joinCode = null;
+    }
+  } catch (err) {
+    playBtn.disabled = false;
+    statusEl.textContent = err instanceof Error ? err.message : String(err);
+    return;
+  }
+
   bootEl.classList.add('hidden');
   hudEl.classList.remove('hidden');
+
+  if (joinCode) {
+    roomCodeEl.textContent = joinCode;
+    roomCodeEl.classList.remove('hidden');
+    roomCodeEl.title = `Código de sala — click para copiar`;
+  } else {
+    roomCodeEl.classList.add('hidden');
+  }
 
   startGame(
     'game',
@@ -393,14 +518,16 @@ playBtn.addEventListener('click', async () => {
       palette,
       mapSource,
       worldId,
+      roomId,
+      joinCode,
       startingArea,
       emoji,
       file,
       fxClouds,
       fxWaves,
-      daySeconds,
-      daysPerMonth,
-      lunarQuarterDays,
+      daySeconds: bootDaySeconds,
+      daysPerMonth: bootDaysPerMonth,
+      lunarQuarterDays: bootLunarQuarterDays,
       onStatus: (msg) => {
         statusEl.textContent = msg;
         document.title = msg ? `PixelWeb — ${msg}` : 'PixelWeb — Mapa del Mundo';
@@ -428,6 +555,20 @@ playBtn.addEventListener('click', async () => {
       },
     },
   );
+});
+
+roomCodeEl.addEventListener('click', async () => {
+  const code = roomCodeEl.textContent?.trim();
+  if (!code || code === '—') return;
+  try {
+    await navigator.clipboard.writeText(code);
+    roomCodeEl.title = '¡Copiado!';
+    setTimeout(() => {
+      roomCodeEl.title = 'Código de sala — click para copiar';
+    }, 1200);
+  } catch {
+    /* ignore */
+  }
 });
 
 chatForm.addEventListener('submit', (e) => {

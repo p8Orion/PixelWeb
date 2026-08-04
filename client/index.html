@@ -29,6 +29,27 @@
           <input type="hidden" id="player-emoji" value="🧭" />
         </div>
 
+        <div class="field">
+          <span>Modo</span>
+          <div class="mode-toggle" id="play-mode" role="radiogroup" aria-label="Modo de juego">
+            <button type="button" data-mode="create" aria-pressed="true">Crear sala</button>
+            <button type="button" data-mode="join" aria-pressed="false">Unirse</button>
+            <button type="button" data-mode="solo" aria-pressed="false">Solo</button>
+          </div>
+        </div>
+
+        <label class="field hidden" id="join-code-field">
+          <span>Código de sala</span>
+          <input
+            id="join-code"
+            type="text"
+            maxlength="8"
+            placeholder="AB12C"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </label>
+
         <div class="row">
           <label class="field grow">
             <span>Mundo (layers)</span>
@@ -129,15 +150,17 @@
         </label>
 
         <div class="actions">
-          <button id="btn-play" type="button">Entrar al mundo</button>
+          <button id="btn-play" type="button">Crear sala</button>
         </div>
         <p class="status" id="boot-status"></p>
+        <p class="hint" id="mode-hint">Multiplayer: el mundo se fija al crear la sala. Demo: /sea N · /flood</p>
       </div>
     </div>
 
     <div id="hud" class="hidden">
       <div class="hud-top">
         <span class="brand-mini">PIXELWEB</span>
+        <span id="room-code" class="room-code hidden" title="Código para unirse">—</span>
         <div class="hud-time-cluster">
           <div id="game-clock" class="game-clock" title="GMT−3 · N/M ±5min · Shift+N/M ±1h · V/B ±1d · Shift+V/B ±30d">
             <span class="game-clock-face" aria-hidden="true"></span>
@@ -172,7 +195,7 @@
         </div>
         <span id="player-count">1 online</span>
       </div>
-      <div class="hud-help">WASD · click ir · clic der. cancelar · N/M ±5min · Shift+N/M ±1h · V/B ±1d · chat</div>
+      <div class="hud-help">WASD · click ir · /sea N · /flood · N/M tiempo · chat</div>
       <aside id="net-info" class="info-panel" aria-live="polite">
         <div class="tile-info-title">Red</div>
         <dl>
