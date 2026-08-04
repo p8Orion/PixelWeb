@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "kind": "ingested",
+  "projection": "equirectangular",
+  "width": 12288,
+  "height": 6144,
+  "lonRange": [
+    -180,
+    180
+  ],
+  "latRange": [
+    -90,
+    90
+  ],
+  "channels": {
+    "elevation": {
+      "file": "elevation.bin",
+      "dtype": "int16",
+      "unit": "meters",
+      "source": "AWS Terrain Tiles terrarium z=6"
+    },
+    "coverRaw": {
+      "file": "cover_raw.bin",
+      "dtype": "uint8",
+      "source": "ESA CCI/C3S Land Cover 300m LCCS 2020 v2.1.1 (Planetary Computer COGs)",
+      "encoding": "esa-cci-lccs"
+    },
+    "hydroRaw": {
+      "file": "hydro_raw.bin",
+      "dtype": "uint8",
+      "source": "Natural Earth 10m rivers (scale_rank/strokeweig centerlines) + lakes",
+      "encoding": "ne-hydro-v1"
+    },
+    "hydroWidth": {
+      "file": "hydro_width.bin",
+      "dtype": "uint8",
+      "source": "Natural Earth strokeweig × 100 (uint8); interpret dilates with HYDRO_INTERPRET.strokeScale",
+      "encoding": "ne-strokeweig-x100"
+    }
+  },
+  "builtAt": "2026-08-03T21:09:53.349Z"
+}

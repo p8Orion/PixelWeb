@@ -1,0 +1,2 @@
+data/worlds/**/*.bin filter=lfs diff=lfs merge=lfs -text
+data/worlds/**/*.png filter=lfs diff=lfs merge=lfs -text

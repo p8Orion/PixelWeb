@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "kind": "interpreted",
+  "profile": "default",
+  "worldId": "earth3x",
+  "projection": "equirectangular",
+  "width": 12288,
+  "height": 6144,
+  "lonRange": [
+    -180,
+    180
+  ],
+  "latRange": [
+    -90,
+    90
+  ],
+  "layers": {
+    "landmask": {
+      "file": "landmask.bin",
+      "dtype": "uint8",
+      "meaning": "elevation > 0 m"
+    },
+    "elevation": {
+      "file": "elevation.bin",
+      "dtype": "int16",
+      "unit": "meters",
+      "note": "passthrough from ingest (meters)"
+    },
+    "landcover": {
+      "file": "landcover.bin",
+      "dtype": "uint8",
+      "codes": {
+        "0": "water",
+        "5": "freshwater",
+        "10": "tree_cover",
+        "20": "shrubland",
+        "30": "grassland",
+        "40": "cropland",
+        "50": "built_up",
+        "60": "bare_sparse",
+        "70": "snow_ice",
+        "90": "wetland"
+      },
+      "meaning": "ESA CCI LCCS→game on land; ocean from landmask; hydro rivers radius=strokeweig×2 (601661 px)"
+    }
+  },
+  "ingestBuiltAt": "2026-08-03T21:09:53.349Z",
+  "interpretedAt": "2026-08-03T21:19:00.645Z"
+}
