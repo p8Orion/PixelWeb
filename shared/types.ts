@@ -131,7 +131,7 @@ export const STARTING_AREAS: Record<StartingAreaId, LonLatBounds> = {
 export const DEFAULT_STARTING_AREA: StartingAreaId = 'argentina';
 
 /** Camera zoom when entering the world (regional Argentina view). */
-export const DEFAULT_CAMERA_ZOOM = 8;
+export const DEFAULT_CAMERA_ZOOM = 14;
 
 export function lonLatToWorldPx(
   lon: number,

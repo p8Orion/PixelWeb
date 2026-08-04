@@ -1,15 +1,26 @@
 /**
  * Global game clock — civil hours in [0, 24) as **GMT−3** (UTC−3).
  * Advanced by the WorldScene each frame; sunlight converts to UTC + lon for solar.
+ *
+ * Day length and calendar scale live in `timeScale.ts` (`daySeconds`, `daysPerMonth`).
+ * Midnight advances the calendar by `AVERAGE_MONTH_DAYS / daysPerMonth` days.
+ * Hour deltas also advance `GameLunar`.
  */
 
-/** Real-time seconds for one in-game hour (24 min ≈ full day). */
-const REAL_SECONDS_PER_GAME_HOUR = 60;
+import { GameCalendar } from './gameCalendar';
+import { GameLunar } from './gameLunar';
+import {
+  CLOCK_CIVIL_OFFSET_HOURS,
+  calendarDaysPerGameDay,
+  realSecondsPerGameHour,
+} from './timeScale';
 
-/** Fixed offset of the displayed clock from UTC (hours). GMT−3 → −3. */
-export const CLOCK_UTC_OFFSET_HOURS = -3;
+/** Re-export so existing imports of CLOCK_UTC_OFFSET_HOURS keep working. */
+export const CLOCK_UTC_OFFSET_HOURS = CLOCK_CIVIL_OFFSET_HOURS;
 
 let hour = 10;
+/** Fractional calendar-day carry from non-integer days-per-month ratios. */
+let calendarDayCarry = 0;
 const listeners = new Set<(h: number) => void>();
 
 function wrap(h: number): number {
@@ -20,6 +31,15 @@ function emit() {
   for (const fn of listeners) fn(hour);
 }
 
+function advanceCalendar(crossedGameDays: number) {
+  if (crossedGameDays === 0) return;
+  calendarDayCarry += crossedGameDays * calendarDaysPerGameDay();
+  const whole = Math.trunc(calendarDayCarry);
+  if (whole === 0) return;
+  calendarDayCarry -= whole;
+  GameCalendar.nudgeDays(whole);
+}
+
 export const GameClock = {
   get hour(): number {
     return hour;
@@ -27,7 +47,7 @@ export const GameClock = {
 
   /** Civil hour as UTC (for solar / debug). */
   get utcHour(): number {
-    return wrap(hour - CLOCK_UTC_OFFSET_HOURS);
+    return wrap(hour - CLOCK_CIVIL_OFFSET_HOURS);
   },
 
   setHour(h: number) {
@@ -37,7 +57,12 @@ export const GameClock = {
 
   /** Shift by ±hours (e.g. +1 / −1). */
   nudge(deltaHours: number) {
-    hour = wrap(hour + deltaHours);
+    if (deltaHours === 0) return;
+    const sum = hour + deltaHours;
+    const crossed = Math.floor(sum / 24);
+    hour = wrap(sum);
+    advanceCalendar(crossed);
+    GameLunar.advanceHours(deltaHours);
     emit();
   },
 
@@ -48,7 +73,13 @@ export const GameClock = {
   tick(dtMs: number) {
     if (dtMs <= 0 || dtMs > 5000) return;
     const prevMin = Math.floor(hour * 60);
-    hour = wrap(hour + dtMs / 1000 / REAL_SECONDS_PER_GAME_HOUR);
+    const secPerHour = realSecondsPerGameHour();
+    const deltaHours = dtMs / 1000 / secPerHour;
+    const sum = hour + deltaHours;
+    const crossed = Math.floor(sum / 24);
+    hour = wrap(sum);
+    advanceCalendar(crossed);
+    GameLunar.advanceHours(deltaHours);
     if (Math.floor(hour * 60) !== prevMin) emit();
   },
 

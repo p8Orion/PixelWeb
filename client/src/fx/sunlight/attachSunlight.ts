@@ -24,6 +24,8 @@ export interface SunlightRegionLayers {
 export interface SunlightAttachOptions {
   hour?: number;
   dayOfYear?: number;
+  /** Moonlight 0..1 (new → full). Default 1. */
+  moonIntensity?: number;
   /**
    * `equirectangular`: per-pixel lat/lon solar (terminator + seasons).
    * `none`: legacy hour-only day curve (non-Earth / abstract maps).
@@ -39,6 +41,8 @@ export interface SunlightHandle {
   setTimeOfDay(hour: number): void;
   /** Day of year 1..365 — seasons / declination. */
   setDayOfYear(day: number): void;
+  /** Moonlight magnitude 0..1 (new → full). */
+  setMoonIntensity(amount: number): void;
   /** Re-upload elev texture for the loaded tile AABB (or full map). */
   setRegionLayers(region: SunlightRegionLayers | null): void;
   destroy(): void;
@@ -47,6 +51,7 @@ export interface SunlightHandle {
 const noopHandle: SunlightHandle = {
   setTimeOfDay() {},
   setDayOfYear() {},
+  setMoonIntensity() {},
   setRegionLayers() {},
   destroy() {},
 };
@@ -124,6 +129,7 @@ export function attachSunlight(
   instance.elevMax = ELEV_PACK.max;
   instance.hour = ((initialHour % 24) + 24) % 24;
   instance.dayOfYear = Math.max(1, Math.min(365, Math.floor(options.dayOfYear ?? 215)));
+  instance.moonIntensity = Math.max(0, Math.min(1, options.moonIntensity ?? 1));
   instance.geoMode = geo === 'equirectangular' ? 1 : 0;
   instance.utcOffsetFromCivil = -CLOCK_UTC_OFFSET_HOURS;
   instance.slopeScale = Math.max(0.02, Math.min(0.08, 90 / options.mapWidth));
@@ -163,6 +169,10 @@ export function attachSunlight(
     setDayOfYear(day: number) {
       if (!alive) return;
       instance.dayOfYear = Math.max(1, Math.min(365, Math.floor(day)));
+    },
+    setMoonIntensity(amount: number) {
+      if (!alive) return;
+      instance.moonIntensity = Math.max(0, Math.min(1, amount));
     },
     setRegionLayers(region) {
       applyRegion(region);

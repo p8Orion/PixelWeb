@@ -53,15 +53,32 @@ export const GameCalendar = {
     emit();
   },
 
+  /**
+   * Shift by whole calendar months (non-leap 365-day year).
+   */
+  nudgeMonths(delta: number) {
+    if (delta === 0) return;
+    const ends = [31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365];
+    let m = monthIndexFromDay(dayOfYear);
+    const starts = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
+    const dom = dayOfYear - starts[m] + 1;
+    m = ((m + delta) % 12 + 12) % 12;
+    const monthLen = ends[m] - (m === 0 ? 0 : ends[m - 1]);
+    const clampedDom = Math.min(dom, monthLen);
+    dayOfYear = wrapDay(starts[m] + clampedDom - 1);
+    emit();
+  },
+
   subscribe(fn: (d: number) => void): () => void {
     listeners.add(fn);
     fn(dayOfYear);
     return () => listeners.delete(fn);
   },
 
-  /** e.g. "3 ago" */
-  format(d = dayOfYear): string {
+  /** e.g. "3 ago" — or month-only "ago" when `monthOnly`. */
+  format(d = dayOfYear, opts?: { monthOnly?: boolean }): string {
     const m = monthIndexFromDay(d);
+    if (opts?.monthOnly) return MONTH_SHORT[m];
     const starts = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
     const dom = d - starts[m] + 1;
     return `${dom} ${MONTH_SHORT[m]}`;

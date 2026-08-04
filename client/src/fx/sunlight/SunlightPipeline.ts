@@ -18,6 +18,7 @@ uniform float uDayOfYear;
 uniform float uGeoMode;
 uniform float uUtcOffset;
 uniform float uIntensity;
+uniform float uMoonIntensity;
 uniform float uSlopeScale;
 uniform vec4 uWorldView;
 uniform vec2 uMapSize;
@@ -103,7 +104,9 @@ void main () {
 
   vec3 sunTint = mix(vec3(1.0), twilightCol, clamp(twilight, 0.0, 1.0));
   sunTint = mix(sunTint, vec3(0.55, 0.62, 0.85), night * 0.65);
-  float nightDim = mix(1.0, 0.52, night);
+  float moonI = clamp(uMoonIntensity, 0.0, 1.0);
+  // New moon ~3% fill; full moon ~64%
+  float nightDim = mix(1.0, mix(0.03, 0.64, moonI), night);
 
   float shade = 1.0;
 
@@ -116,8 +119,6 @@ void main () {
     float z0 = elevAt(texUV);
     float coastalFade = smoothstep(2.0, 55.0, z0);
     float doHill = lit * coastalFade;
-    // Soften hillshade contribution under the horizon
-    doHill *= smoothstep(-0.05, 0.12, sinEl);
 
     if (doHill > 0.01) {
       vec2 texel = 1.0 / max(uRegionSize, vec2(1.0));
@@ -132,12 +133,23 @@ void main () {
         1.0
       ));
 
-      vec3 lightDir = normalize(vec3(lightEast, lightSouth, lightUp));
-      float ndotl = clamp(dot(n, lightDir), 0.0, 1.0);
+      // Day: solar hillshade (fades under horizon)
+      vec3 sunDir = normalize(vec3(lightEast, lightSouth, lightUp));
+      float sunN = clamp(dot(n, sunDir), 0.0, 1.0);
       float sunH = max(0.0, sinEl);
-      float ambient = mix(0.22, 0.55, sunH);
-      float hill = mix(ambient, 1.0, ndotl * uIntensity);
-      shade = mix(1.0, hill, doHill);
+      float sunAmb = mix(0.22, 0.55, sunH);
+      float sunHill = mix(sunAmb, 1.0, sunN * uIntensity);
+      float sunW = doHill * smoothstep(-0.05, 0.12, sinEl);
+      float dayShade = mix(1.0, sunHill, sunW);
+
+      // Night: moonlight hillshade always on; new moon = 25% of full strength
+      vec3 moonDir = normalize(vec3(-0.55, 0.28, 0.72));
+      float moonN = clamp(dot(n, moonDir), 0.0, 1.0);
+      float moonStrength = mix(0.25, 1.0, moonI);
+      float moonHill = mix(0.52, 1.0, moonN * (0.32 + 0.48 * moonStrength));
+      float nightShade = mix(1.0, moonHill, doHill * moonStrength);
+
+      shade = mix(dayShade, nightShade, night);
     }
   }
 
@@ -164,6 +176,8 @@ export class SunlightPipeline extends Phaser.Renderer.WebGL.Pipelines.PostFXPipe
   /** 0 = legacy hour curve, 1 = equirectangular solar. */
   geoMode = 1;
   intensity = 0.85;
+  /** Moonlight magnitude 0..1 (new → full). Drives night hillshade + night fill. */
+  moonIntensity = 1;
   slopeScale = 0.045;
 
   mapW = 1;
@@ -201,6 +215,7 @@ export class SunlightPipeline extends Phaser.Renderer.WebGL.Pipelines.PostFXPipe
     this.set1f('uGeoMode', this.geoMode);
     this.set1f('uUtcOffset', this.utcOffsetFromCivil);
     this.set1f('uIntensity', this.intensity);
+    this.set1f('uMoonIntensity', this.moonIntensity);
     this.set1f('uSlopeScale', this.slopeScale);
     this.set2f('uMapSize', this.mapW, this.mapH);
     this.set2f('uRegionOrigin', this.regionOriginX, this.regionOriginY);
