@@ -1,6 +1,8 @@
 /**
  * Global game clock — civil hours in [0, 24) as **GMT−3** (UTC−3).
- * Advanced by the WorldScene each frame; sunlight converts to UTC + lon for solar.
+ * Solo: advanced by the WorldScene each frame.
+ * Multiplayer rooms: server is authoritative; client snaps via `applyServerSync`
+ * and still ticks locally between syncs for smooth display.
  *
  * Day length and calendar scale live in `timeScale.ts` (`daySeconds`, `daysPerMonth`).
  * Midnight advances the calendar by `AVERAGE_MONTH_DAYS / daysPerMonth` days.
@@ -8,12 +10,15 @@
  */
 
 import { GameCalendar } from './gameCalendar';
-import { GameLunar } from './gameLunar';
+import { GameLunar, setLunarQuarterDays } from './gameLunar';
 import {
   CLOCK_CIVIL_OFFSET_HOURS,
   calendarDaysPerGameDay,
   realSecondsPerGameHour,
+  setDaySeconds,
+  setDaysPerMonth,
 } from './timeScale';
+import type { TimeSyncPayload } from '../../shared/time';
 
 /** Re-export so existing imports of CLOCK_UTC_OFFSET_HOURS keep working. */
 export const CLOCK_UTC_OFFSET_HOURS = CLOCK_CIVIL_OFFSET_HOURS;
@@ -52,6 +57,21 @@ export const GameClock = {
 
   setHour(h: number) {
     hour = wrap(h);
+    emit();
+  },
+
+  /**
+   * Snap local clock/calendar/lunar + scale from server room authority.
+   * Does not locally tick past `serverTimeMs` (caller may extrapolate).
+   */
+  applyServerSync(sync: TimeSyncPayload) {
+    setDaySeconds(sync.daySeconds);
+    setDaysPerMonth(sync.daysPerMonth);
+    setLunarQuarterDays(sync.lunarQuarterDays);
+    hour = wrap(sync.hour);
+    calendarDayCarry = 0;
+    GameCalendar.setDayOfYear(sync.dayOfYear);
+    GameLunar.setAge(sync.lunarAge);
     emit();
   },
 

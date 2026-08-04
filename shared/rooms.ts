@@ -1,6 +1,10 @@
 /** Multiplayer room config + overlay types (shared client/server). */
 
 import type { PlayerId, PlayerState, RoomState } from './types.js';
+import type { RoomSimTime, TimeSyncPayload } from './time.js';
+import { createRoomSimTime } from './time.js';
+
+export type { RoomSimTime, TimeSyncPayload, RoomTimeScale } from './time.js';
 
 export interface RoomConfig {
   worldId: string;
@@ -30,6 +34,8 @@ export interface GameRoom {
   players: Record<PlayerId, PlayerState>;
   createdAt: number;
   overlay: RoomOverlay;
+  /** Server-authoritative civil clock / calendar / lunar for this room. */
+  simTime: RoomSimTime;
 }
 
 export interface RoomPublicMeta {
@@ -38,6 +44,7 @@ export interface RoomPublicMeta {
   config: RoomConfig;
   playerCount: number;
   seaLevelOffsetM: number;
+  time?: TimeSyncPayload;
 }
 
 export interface WelcomePayload {
@@ -46,6 +53,7 @@ export interface WelcomePayload {
   config: RoomConfig;
   joinCode: string;
   seaLevelOffsetM: number;
+  time: TimeSyncPayload;
 }
 
 export interface MapPatchEvent {
@@ -72,5 +80,16 @@ export function roomPublicMeta(room: GameRoom): RoomPublicMeta {
     config: room.config,
     playerCount: Object.keys(room.players).length,
     seaLevelOffsetM: room.overlay.seaLevelOffsetM,
+    time: {
+      hour: room.simTime.hour,
+      dayOfYear: room.simTime.dayOfYear,
+      lunarAge: room.simTime.lunarAge,
+      daySeconds: room.simTime.scale.daySeconds,
+      daysPerMonth: room.simTime.scale.daysPerMonth,
+      lunarQuarterDays: room.simTime.scale.lunarQuarterDays,
+      serverTimeMs: room.simTime.updatedAt,
+    },
   };
 }
+
+export { createRoomSimTime };

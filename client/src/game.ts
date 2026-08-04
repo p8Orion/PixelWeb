@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { io, type Socket } from 'socket.io-client';
 import type { PlayerState, StartingAreaId } from '../../shared/types';
 import type { MapPatchEvent, WelcomePayload } from '../../shared/rooms';
+import type { TimeSyncPayload } from '../../shared/time';
 import {
   areaSpawn,
   DEFAULT_CAMERA_ZOOM,
@@ -186,7 +187,7 @@ export class WorldScene extends Phaser.Scene {
     e.preventDefault();
   };
 
-  /** N/M ±5min, Shift+N/M ±1h; V/B calendar; +/− ±1h. */
+  /** N/M ±5min, Shift+N/M ±1h; V/B calendar; +/− ±1h. In rooms → server. */
   private readonly onTimeKeys = (e: KeyboardEvent) => {
     if (this.chatFocused) return;
     if (e.repeat) return;
@@ -194,23 +195,33 @@ export class WorldScene extends Phaser.Scene {
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
       return;
     }
+
+    const sendOrLocal = (hours = 0, days = 0) => {
+      if (this.config.roomId && this.socket?.connected) {
+        this.socket.emit('time:nudge', { hours, days });
+        return;
+      }
+      if (hours) GameClock.nudge(hours);
+      if (days) GameCalendar.nudgeDays(days);
+    };
+
     if (e.key === '+' || e.code === 'NumpadAdd') {
-      GameClock.nudge(1);
+      sendOrLocal(1, 0);
       e.preventDefault();
     } else if (e.key === '-' || e.code === 'NumpadSubtract') {
-      GameClock.nudge(-1);
+      sendOrLocal(-1, 0);
       e.preventDefault();
     } else if (e.code === 'KeyM') {
-      GameClock.nudge(e.shiftKey ? 1 : 5 / 60);
+      sendOrLocal(e.shiftKey ? 1 : 5 / 60, 0);
       e.preventDefault();
     } else if (e.code === 'KeyN') {
-      GameClock.nudge(e.shiftKey ? -1 : -5 / 60);
+      sendOrLocal(e.shiftKey ? -1 : -5 / 60, 0);
       e.preventDefault();
     } else if (e.code === 'KeyB') {
-      GameCalendar.nudgeDays(e.shiftKey ? 30 : 1);
+      sendOrLocal(0, e.shiftKey ? 30 : 1);
       e.preventDefault();
     } else if (e.code === 'KeyV') {
-      GameCalendar.nudgeDays(e.shiftKey ? -30 : -1);
+      sendOrLocal(0, e.shiftKey ? -30 : -1);
       e.preventDefault();
     }
   };
@@ -230,6 +241,20 @@ export class WorldScene extends Phaser.Scene {
   private readonly blockContextMenu = (e: Event) => {
     e.preventDefault();
   };
+
+  /** Apply server room clock (scale + hour + calendar + lunar). */
+  private applyRoomTimeSync(sync: TimeSyncPayload) {
+    GameClock.applyServerSync(sync);
+    this.config.daySeconds = sync.daySeconds;
+    this.config.daysPerMonth = sync.daysPerMonth;
+    this.config.lunarQuarterDays = sync.lunarQuarterDays;
+    const lag = Date.now() - sync.serverTimeMs;
+    if (lag > 0 && lag < 2000) GameClock.tick(lag);
+    this.lastClockWallMs = performance.now();
+    this.sunlightFx?.setTimeOfDay(GameClock.hour);
+    this.sunlightFx?.setDayOfYear(GameCalendar.dayOfYear);
+    this.sunlightFx?.setMoonIntensity(GameLunar.shaderIntensity);
+  }
 
   constructor() {
     super('World');
@@ -688,6 +713,7 @@ export class WorldScene extends Phaser.Scene {
     this.socket.on('welcome', (payload: WelcomePayload) => {
       this.localId = payload.you.id;
       if (payload.joinCode) this.config.joinCode = payload.joinCode;
+      if (payload.time) this.applyRoomTimeSync(payload.time);
       this.spawnLocal(payload.you);
       for (const p of Object.values(payload.room.players)) {
         if (p.id !== this.localId) this.spawnRemote(p);
@@ -731,6 +757,10 @@ export class WorldScene extends Phaser.Scene {
       const store = this.mapData?.tileStore;
       if (!store) return;
       store.invalidate(event.tiles?.length ? event.tiles : undefined);
+    });
+
+    this.socket.on('time:sync', (sync: TimeSyncPayload) => {
+      this.applyRoomTimeSync(sync);
     });
 
     this.socket.on('room:reject', (payload: { message?: string }) => {

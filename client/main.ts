@@ -432,6 +432,9 @@ playBtn.addEventListener('click', async () => {
 
   let roomId: string | null = null;
   let joinCode: string | null = null;
+  let bootDaySeconds = daySeconds;
+  let bootDaysPerMonth = daysPerMonth;
+  let bootLunarQuarterDays = lunarQuarterDays;
 
   try {
     if (mode === 'create') {
@@ -440,7 +443,12 @@ playBtn.addEventListener('click', async () => {
       const res = await fetch('/api/rooms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ worldId }),
+        body: JSON.stringify({
+          worldId,
+          daySeconds,
+          daysPerMonth,
+          lunarQuarterDays,
+        }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -453,6 +461,13 @@ playBtn.addEventListener('click', async () => {
       roomId = String((body as { roomId: string }).roomId);
       joinCode = String((body as { joinCode: string }).joinCode);
       worldId = String((body as { config: { worldId: string } }).config.worldId);
+      const time = (body as { time?: { daySeconds: number; daysPerMonth: number; lunarQuarterDays: number } })
+        .time;
+      if (time) {
+        bootDaySeconds = time.daySeconds;
+        bootDaysPerMonth = time.daysPerMonth;
+        bootLunarQuarterDays = time.lunarQuarterDays;
+      }
     } else if (mode === 'join') {
       mapSource = 'layers';
       const code = joinCodeInput.value.trim().toUpperCase();
@@ -466,6 +481,13 @@ playBtn.addEventListener('click', async () => {
       roomId = String((body as { roomId: string }).roomId);
       joinCode = String((body as { joinCode: string }).joinCode);
       worldId = String((body as { config: { worldId: string } }).config.worldId);
+      const time = (body as { time?: { daySeconds: number; daysPerMonth: number; lunarQuarterDays: number } })
+        .time;
+      if (time) {
+        bootDaySeconds = time.daySeconds;
+        bootDaysPerMonth = time.daysPerMonth;
+        bootLunarQuarterDays = time.lunarQuarterDays;
+      }
     } else {
       roomId = null;
       joinCode = null;
@@ -503,9 +525,9 @@ playBtn.addEventListener('click', async () => {
       file,
       fxClouds,
       fxWaves,
-      daySeconds,
-      daysPerMonth,
-      lunarQuarterDays,
+      daySeconds: bootDaySeconds,
+      daysPerMonth: bootDaysPerMonth,
+      lunarQuarterDays: bootLunarQuarterDays,
       onStatus: (msg) => {
         statusEl.textContent = msg;
         document.title = msg ? `PixelWeb — ${msg}` : 'PixelWeb — Mapa del Mundo';

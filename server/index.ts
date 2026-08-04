@@ -20,6 +20,13 @@ import {
   type MapPatchEvent,
   type WelcomePayload,
 } from '../shared/rooms.js';
+import {
+  minuteBucket,
+  nudgeRoomSimCalendarDays,
+  nudgeRoomSimHours,
+  tickRoomSimTime,
+  timeSyncFromSim,
+} from '../shared/time.js';
 import { MAP_TILE_SIZE } from '../shared/maps/tiles.js';
 import { createMapsRouter } from './maps/routes.js';
 import { ensureAllReadyWorlds, getActiveWorld, getWorld } from './maps/store.js';
@@ -31,6 +38,7 @@ import { mergedTileCache } from './rooms/tileCache.js';
 const PORT = Number(process.env.PORT) || 3001;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.resolve(__dirname, '../dist');
+const ROOM_TIME_TICK_MS = 200;
 
 const app = express();
 app.use(cors());
@@ -52,6 +60,27 @@ function emitMapPatch(roomId: string, event: MapPatchEvent) {
   io.to(roomId).emit('map:patch', event);
 }
 
+function emitTimeSync(roomId: string) {
+  const room = roomStore.getById(roomId);
+  if (!room) return;
+  io.to(roomId).emit('time:sync', timeSyncFromSim(room.simTime));
+}
+
+/** Advance sim clocks for rooms with players; broadcast when the displayed minute changes. */
+function tickAllRoomClocks() {
+  const now = Date.now();
+  for (const room of roomStore.list()) {
+    if (Object.keys(room.players).length === 0) continue;
+    const prevMin = minuteBucket(room.simTime.hour);
+    const dt = now - room.simTime.updatedAt;
+    tickRoomSimTime(room.simTime, dt, now);
+    roomStore.save(room);
+    if (minuteBucket(room.simTime.hour) !== prevMin) {
+      emitTimeSync(room.id);
+    }
+  }
+}
+
 io.on('connection', (socket) => {
   const roomId = String(socket.handshake.query.roomId || '');
   const room = roomId ? roomStore.getById(roomId) : null;
@@ -69,6 +98,12 @@ io.on('connection', (socket) => {
     : DEFAULT_STARTING_AREA;
   const emojiRaw = String(socket.handshake.query.emoji || DEFAULT_PLAYER_EMOJI);
   const emoji = isPlayerEmoji(emojiRaw) ? emojiRaw : DEFAULT_PLAYER_EMOJI;
+
+  // Catch up sim clock before spawning so welcome has fresh time.
+  {
+    const now = Date.now();
+    tickRoomSimTime(room.simTime, now - room.simTime.updatedAt, now);
+  }
 
   const { mapWidth, mapHeight } = room.config;
   const spawn = areaSpawn(startingArea, mapWidth, mapHeight);
@@ -94,6 +129,7 @@ io.on('connection', (socket) => {
     config: room.config,
     joinCode: room.joinCode,
     seaLevelOffsetM: room.overlay.seaLevelOffsetM,
+    time: timeSyncFromSim(room.simTime),
   };
   socket.emit('welcome', welcome);
   socket.to(roomId).emit('player:join', player);
@@ -122,6 +158,27 @@ io.on('connection', (socket) => {
     if (!p) return;
     io.to(roomId).emit('chat', { id: socket.id, name: p.name, text });
   });
+
+  /** Anyone in the room can nudge shared time (server applies + broadcasts). */
+  socket.on(
+    'time:nudge',
+    (data: { hours?: number; days?: number }) => {
+      const r = roomStore.getById(roomId);
+      if (!r) return;
+      const hours = Number(data?.hours) || 0;
+      const days = Number(data?.days) || 0;
+      if (hours === 0 && days === 0) return;
+      // Clamp abuse: max ±48h / ±60d per event
+      const dh = Math.max(-48, Math.min(48, hours));
+      const dd = Math.max(-60, Math.min(60, days));
+      const now = Date.now();
+      tickRoomSimTime(r.simTime, now - r.simTime.updatedAt, now);
+      if (dh !== 0) nudgeRoomSimHours(r.simTime, dh, now);
+      if (dd !== 0) nudgeRoomSimCalendarDays(r.simTime, dd, now);
+      roomStore.save(r);
+      emitTimeSync(roomId);
+    },
+  );
 
   /** Demo deltas: sea level or local flood around a point. */
   socket.on(
@@ -230,6 +287,8 @@ async function boot() {
     console.warn('  → npm run maps:build -- --world=earth3x --force');
     console.warn(String(err));
   }
+
+  setInterval(tickAllRoomClocks, ROOM_TIME_TICK_MS);
 
   httpServer.listen(PORT, () => {
     console.log(`PixelWeb server on http://localhost:${PORT}`);

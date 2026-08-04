@@ -13,12 +13,26 @@ export function createRoomsRouter(): Router {
     try {
       const worldId = String(req.body?.worldId || 'default');
       const profile = req.body?.profile ? String(req.body.profile) : undefined;
-      const room = roomStore.create({ worldId, profile });
+      const timeScale = {
+        daySeconds: req.body?.daySeconds,
+        daysPerMonth: req.body?.daysPerMonth,
+        lunarQuarterDays: req.body?.lunarQuarterDays,
+      };
+      const room = roomStore.create({ worldId, profile, timeScale });
       res.status(201).json({
         roomId: room.id,
         joinCode: room.joinCode,
         config: room.config,
         seaLevelOffsetM: room.overlay.seaLevelOffsetM,
+        time: {
+          hour: room.simTime.hour,
+          dayOfYear: room.simTime.dayOfYear,
+          lunarAge: room.simTime.lunarAge,
+          daySeconds: room.simTime.scale.daySeconds,
+          daysPerMonth: room.simTime.scale.daysPerMonth,
+          lunarQuarterDays: room.simTime.scale.lunarQuarterDays,
+          serverTimeMs: room.simTime.updatedAt,
+        },
       });
     } catch (err) {
       const status = (err as { status?: number }).status || 500;

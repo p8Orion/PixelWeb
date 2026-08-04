@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto';
 import type { GameRoom, RoomConfig } from '../../shared/rooms.js';
 import { emptyOverlay } from '../../shared/rooms.js';
+import { createRoomSimTime, type RoomTimeScale } from '../../shared/time.js';
 import { getWorld } from '../maps/store.js';
 
 const JOIN_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -10,6 +11,7 @@ export interface CreateRoomInput {
   worldId: string;
   profile?: string;
   hostId?: string | null;
+  timeScale?: Partial<RoomTimeScale>;
 }
 
 export interface RoomStore {
@@ -71,6 +73,7 @@ export class InMemoryRoomStore implements RoomStore {
       players: {},
       createdAt: Date.now(),
       overlay: emptyOverlay(),
+      simTime: createRoomSimTime(input.timeScale),
     };
     this.byId.set(room.id, room);
     this.byCode.set(joinCode, room.id);
