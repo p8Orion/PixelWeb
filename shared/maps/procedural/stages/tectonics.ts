@@ -758,13 +758,13 @@ export const tectonicsStage: ProceduralStage = {
 
     const count = Math.max(1, Math.min(12, Math.round(t.orogenyCount)));
     const uplift = Math.max(0.2, t.upliftStrength);
-    const lengthFrac = Math.max(0.05, Math.min(1.2, t.cordilleraLength ?? 0.5));
+    const lengthFrac = Math.max(0.05, Math.min(1.2, t.cordilleraLength ?? 0.4));
     const widthFrac = Math.max(0.005, Math.min(0.25, t.cordilleraWidth ?? 0.18));
     const widthVar = Math.max(0, Math.min(1, t.cordilleraWidthVariability ?? 0.9));
     const crestVar = Math.max(0, Math.min(1, t.cordilleraCrestVariability ?? 0.9));
     const spacingVar = Math.max(0, Math.min(1, t.cordilleraNodeSpacingVar ?? 0.65));
     const lengthVar = Math.max(0, Math.min(1, t.cordilleraLengthVariability ?? 0.9));
-    const fallShape = Math.max(0, Math.min(1, t.cordilleraFalloffShape ?? 0.95));
+    const fallShape = Math.max(0, Math.min(1, t.cordilleraFalloffShape ?? 1));
     const fallJagged = Math.max(0, Math.min(1, t.cordilleraFalloffJagged ?? 0.65));
     const jagVar = Math.max(0, Math.min(1, t.cordilleraJaggedVariability ?? 0.85));
     const meanderAvg = Math.max(0, Math.min(12, t.cordilleraMeander ?? 4));
